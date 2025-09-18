@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Ironman 2019 — Performance Patterns</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <!-- Page Title -->
+      <header class="page" role="banner">
+        <h1>Ironman 2019 — Performance Patterns</h1>
+        <p class="subtitle">
+          Exploring splits and finish times across athletes, divisions, and
+          genders
+        </p>
+      </header>
+
+      <!-- Summary (top, full width) -->
+      <section class="summary" aria-labelledby="writeup-title">
+        <div class="inner">
+          <h2 id="writeup-title">Description</h2>
+          <p>
+            This project explores the 2019 Ironman World Championship to explore
+            how professional and age-group atheletes perform across the swim,
+            bike, and run disciplines. By focusing on both individual
+            performances and averges.
+          </p>
+          <p>
+            The first chart shows the results of a single athlete. Comparing
+            their swim, bike, run, and overall finish times. The second chart
+            shows the potential relationship of how much effort on the bike can
+            effect their run split. Possibly showing people who were aggressive
+            on the bike being left slow on the run portion of the race. Finally,
+            the third grouped bart chart compares the average overall finish
+            time across divisions and genders. These divisions being Male/Female
+            Pro then Age Group (M18-24/F18-24). The goal of this chart is to see
+            what age typically athletes peak in endurance racing.
+          </p>
+          <!-- <ul>
+            <li>
+              Mention clusters/slopes in the scatter and spread by
+              division/gender.
+            </li>
+            <li>Highlight differences between Pro vs Age Group divisions.</li>
+            <li>Note parsing assumptions for time formats (H:MM:SS).</li>
+          </ul> -->
+        </div>
+        <div class="cite">
+          <div><strong>Dataset & Citation</strong></div>
+          <div>
+            Source:
+            <a
+              id="dataset-link"
+              href="https://www.kaggle.com/datasets/andyesi/2019-ironman-world-championship-results"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              2019 Ironman World Championship Results
+            </a>
+          </div>
+          <div>
+            Citation:
+            <code class="k"
+              >Andrey Esipov. “2019 Ironman World Championship Results.” Kaggle,
+              201.</code
+            >
+          </div>
+        </div>
+      </section>
+
+      <!-- Charts row (horizontal) -->
+      <div class="charts-row">
+        <!-- Chart 1 -->
+        <section class="card" id="chart1-card" aria-labelledby="c1-title">
+          <div class="inner">
+            <div class="card-head">
+              <h3 id="c1-title">Athlete Splits vs Overall</h3>
+              <button
+                class="expand-btn"
+                data-target="chart1-card"
+                aria-expanded="false"
+                aria-label="Expand chart 1"
+              >
+                Expand
+              </button>
+            </div>
+            <div class="controls">
+              <label
+                for="athleteSelect"
+                style="font-size: 13px; color: var(--muted)"
+                >Athlete:</label
+              >
+              <select id="athleteSelect"></select>
+            </div>
+            <figure>
+              <svg
+                id="chart1"
+                viewBox="0 0 600 420"
+                aria-label="Athlete splits"
+              ></svg>
+              <figcaption>
+                Selected athlete’s Swim, Bike, Run, and Overall times.
+              </figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <!-- Chart 2 -->
+        <!-- Chart 2 -->
+        <section class="card" id="chart2-card" aria-labelledby="c2-title">
+          <div class="inner">
+            <div class="card-head">
+              <h3 id="c2-title">Metric vs Metric (All Athletes)</h3>
+              <button
+                class="expand-btn"
+                data-target="chart2-card"
+                aria-expanded="false"
+                aria-label="Expand chart 2"
+              >
+                Expand
+              </button>
+            </div>
+
+            <figure>
+              <svg
+                id="chart2"
+                viewBox="0 0 700 460"
+                aria-label="Metric vs Metric scatter"
+              ></svg>
+              <figcaption>
+                Click the axis titles to change the metric (Swim, Bike, or Run).
+              </figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <!-- Chart 3 -->
+        <section class="card" id="chart3-card" aria-labelledby="c3-title">
+          <div class="inner">
+            <div class="card-head">
+              <h3 id="c3-title">Average Overall by Division & Gender</h3>
+              <button
+                class="expand-btn"
+                data-target="chart3-card"
+                aria-expanded="false"
+                aria-label="Expand chart 3"
+              >
+                Expand
+              </button>
+            </div>
+            <figure>
+              <svg
+                id="chart3"
+                viewBox="0 0 900 500"
+                aria-label="Average overall time by division and gender"
+              ></svg>
+              <figcaption>
+                Average overall finish time by Division &amp; Gender.
+              </figcaption>
+            </figure>
+          </div>
+        </section>
+      </div>
+
+      <footer class="page">
+        Built with D3.js • CS-4410 Data Visualization • Fall 2025
+      </footer>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+      (function () {
+        function enterFullscreen(el) {
+          if (el.requestFullscreen) return el.requestFullscreen();
+          if (el.webkitRequestFullscreen) return el.webkitRequestFullscreen();
+          if (el.msRequestFullscreen) return el.msRequestFullscreen();
+          // fallback: toggle CSS class
+          el.classList.add("is-expanded");
+          el.dataset.fallback = "true";
+          return Promise.resolve();
+        }
+        function exitFullscreen() {
+          if (document.fullscreenElement) return document.exitFullscreen();
+          if (document.webkitFullscreenElement)
+            return document.webkitExitFullscreen();
+          if (document.msFullscreenElement) return document.msExitFullscreen();
+          // fallback: remove CSS class from any expanded card
+          document
+            .querySelectorAll(".card.is-expanded")
+            .forEach((c) => c.classList.remove("is-expanded"));
+          return Promise.resolve();
+        }
+
+        // Keep button state (text + aria) in sync
+        function setBtnState(btn, expanded) {
+          btn.setAttribute("aria-expanded", expanded ? "true" : "false");
+          btn.textContent = expanded ? "Close" : "Expand";
+        }
+
+        // Click handler for all expand buttons
+        document.addEventListener("click", (e) => {
+          const btn = e.target.closest(".expand-btn");
+          if (!btn) return;
+
+          const targetId = btn.getAttribute("data-target");
+          const card = document.getElementById(targetId);
+          if (!card) return;
+
+          const isAlreadyExpanded =
+            document.fullscreenElement === card ||
+            card.classList.contains("is-expanded");
+
+          if (!isAlreadyExpanded) {
+            enterFullscreen(card).then(() => setBtnState(btn, true));
+          } else {
+            exitFullscreen().then(() => setBtnState(btn, false));
+          }
+        });
+
+        // Close on ESC (covers fallback mode too)
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") {
+            exitFullscreen();
+            document
+              .querySelectorAll('.expand-btn[aria-expanded="true"]')
+              .forEach((b) => setBtnState(b, false));
+          }
+        });
+
+        // Sync button state when user exits fullscreen via browser UI
+        document.addEventListener("fullscreenchange", () => {
+          const expanded = !!document.fullscreenElement;
+          // If nothing is fullscreen, reset all buttons
+          if (!expanded) {
+            document
+              .querySelectorAll('.expand-btn[aria-expanded="true"]')
+              .forEach((b) => setBtnState(b, false));
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

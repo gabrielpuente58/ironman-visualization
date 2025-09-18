@@ -1,0 +1,274 @@
+:root {
+  --bg: #ffffff; /* page background */
+  --card: #f7f9fc; /* card background */
+  --muted: #3a4a5e; /* secondary text */
+  --text: #0b172a; /* main text */
+  --accent: #2055ff; /* primary accent */
+  --accent-2: #b5179e; /* secondary accent */
+  --border: #d9e1ec; /* borders/dividers */
+  --shadow: 0 6px 24px rgba(0, 0, 0, 0.1);
+  --radius: 16px;
+  --maxw: 1100px;
+}
+
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+.wrap {
+  max-width: var(--maxw);
+  margin: 24px auto 96px;
+  padding: 0 20px;
+}
+
+/* Header */
+header.page {
+  padding: 28px 28px 24px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7f9fc 80%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+header.page h1 {
+  margin: 0 0 6px;
+  font-size: clamp(24px, 3.2vw, 36px);
+  letter-spacing: 0.3px;
+}
+header.page p.subtitle {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* Header row inside each card */
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+/* Expand button */
+.expand-btn {
+  background: #ffffff;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+.expand-btn:hover {
+  background: #f1f5ff;
+}
+
+/* When an element is in native fullscreen */
+:fullscreen {
+  background: var(--bg);
+}
+:fullscreen .inner {
+  padding: 16px;
+}
+
+/* Make the SVG fill more of the screen when fullscreen */
+:fullscreen svg {
+  width: 100%;
+  height: calc(100vh - 180px); /* room for title/controls/caption */
+}
+
+/* Fallback: if Fullscreen API fails, we toggle .is-expanded on the card */
+.card.is-expanded {
+  position: fixed;
+  inset: 16px;
+  margin: 0;
+  z-index: 9999;
+  background: var(--bg);
+  width: auto;
+  height: auto;
+  overflow: auto;
+}
+.card.is-expanded .inner {
+  padding: 16px;
+}
+.card.is-expanded svg {
+  width: 100%;
+  height: calc(100vh - 180px);
+}
+
+/* Summary card (full width on top) */
+.summary {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-top: 18px;
+  overflow: hidden;
+}
+.summary .inner {
+  padding: 18px 18px 6px;
+}
+.summary h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+.summary p,
+.summary li {
+  color: var(--muted);
+  line-height: 1.55;
+}
+.cite {
+  display: grid;
+  gap: 8px;
+  padding: 14px 18px 18px;
+  background: #f2f6ff;
+  border-top: 1px dashed var(--border);
+}
+.cite strong {
+  font-weight: 600;
+}
+code.k {
+  background: #eef3ff;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  color: #233a72;
+}
+
+/* Charts row UNDER the summary, horizontal layout */
+.charts-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-top: 20px;
+}
+.charts-row .card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  flex: 1 1 320px; /* responsive */
+  min-width: 0; /* prevents overflow */
+}
+.card .inner {
+  padding: 16px 16px 8px;
+}
+.card h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  color: var(--text);
+}
+
+/* Chart controls */
+.controls label {
+  margin-right: 6px;
+}
+.controls select {
+  background: #ffffff;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 14px;
+}
+.controls select:focus {
+  outline: 2px solid var(--accent);
+}
+
+/* SVGs fill the card width while keeping aspect ratio */
+svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Bar default (can be overridden in D3 with scales) */
+.bar {
+  fill: var(--accent);
+}
+.bar:hover {
+  fill: #ff9d3c;
+}
+
+.label {
+  font-size: 12px;
+  fill: var(--text);
+}
+
+figcaption {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 6px 4px 10px;
+  text-align: center;
+}
+
+footer.page {
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* Small popover menu used when clicking axis titles on Chart 2 */
+.axis-menu {
+  position: absolute;
+  z-index: 1000;
+  background: #ffffff;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: 4px;
+  min-width: 120px;
+}
+.axis-menu button {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 8px 10px;
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--text);
+}
+.axis-menu button:hover {
+  background: #f1f5ff;
+}
+
+/* Axis labels styled like dropdown buttons */
+.axis-label {
+  font-size: 13px;
+  font-weight: 500;
+  fill: var(--text);
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Give it a "dropdown" look */
+.axis-label-bg {
+  fill: #ffffff;
+  stroke: var(--border);
+  stroke-width: 1;
+  rx: 6; /* rounded corners */
+  ry: 6;
+}
+
+/* When hovered, background highlights */
+.axis-label:hover + .axis-label-bg,
+.axis-label-bg:hover {
+  fill: #f1f5ff;
+}
