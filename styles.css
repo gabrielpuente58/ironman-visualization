@@ -197,16 +197,23 @@ svg {
 }
 
 /* Bar default (can be overridden in D3 with scales) */
-.bar {
+/* .bar {
   fill: var(--accent);
-}
+} */
 .bar:hover {
   fill: #ff9d3c;
 }
 
-.label {
+/* .label {
   font-size: 12px;
   fill: var(--text);
+} */
+
+.label {
+  font-size: 12px;
+  paint-order: stroke; /* keeps text readable over bar edges */
+  -webkit-text-stroke: 1px rgba(0, 0, 0, 0.15);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
 }
 
 figcaption {
@@ -271,4 +278,91 @@ footer.page {
 .axis-label:hover + .axis-label-bg,
 .axis-label-bg:hover {
   fill: #f1f5ff;
+}
+
+/* --- Controls row for Chart 1 (A/B compare) --- */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 8px 0 6px;
+}
+
+.controls--split {
+  /* sits inline with the primary select */
+  margin-left: 8px;
+}
+
+.select,
+select {
+  background: #ffffff;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 14px;
+  line-height: 1.2;
+}
+.select:focus,
+select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.select--sm {
+  padding: 5px 9px;
+  font-size: 13px;
+}
+
+.select:disabled,
+select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Toggle (checkbox) with label */
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+}
+.toggle:hover {
+  background: #f1f5ff;
+}
+.toggle input[type="checkbox"] {
+  /* keep native checkbox but make it neat */
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* Legend styling (Chart 1) */
+.legend {
+  font-size: 12px;
+}
+.legend .item {
+  cursor: default;
+}
+.legend .item rect {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.legend .item text {
+  fill: var(--text);
+}
+
+/* Optional: tighter spacing for the controls area inside a card header */
+.card .controls {
+  margin-top: 2px;
+  margin-bottom: 6px;
 }
