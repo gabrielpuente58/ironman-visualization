@@ -290,471 +290,492 @@ d3.csv(file).then((data) => {
       .call(d3.axisLeft(y).tickFormat(secondsToHMS));
 
     // Title
-    title1.text(
-      compare && nB
-        ? `${nA} vs ${nB} — Split vs Overall`
-        : `${nA} — Split vs Overall`
-    );
+    title1.text(compare && nB ? `${nA} vs ${nB} ` : `Split times for ${nA}`);
   }
 
-  // Wire up listeners and initial render
   d3.select(compareToggleEl).on("change", renderAthletes);
   selectA.on("change", renderAthletes);
   selectB.on("change", renderAthletes);
 
   renderAthletes();
 
-  // Chart 2: Scatter plot
+  // ===== Chart 2 (FINAL): Metric vs Metric scatter with cached regressions =====
+  // - Precompute all OLS fits for ordered pairs (Swim|Bike, Bike|Run, etc.)
+  // - Brush zoom only repositions line; NO recomputation
+  // - Axis click swaps to the cached fit
 
-  let zoomed = false;
+  (() => {
+    let zoomed = false;
 
-  const svg2 = d3.select("#chart2");
-  const margin2 = { top: 30, right: 30, bottom: 70, left: 100 };
-  const width2 = 700 - margin2.left - margin2.right;
-  const height2 = 460 - margin2.top - margin2.bottom;
+    const svg2 = d3.select("#chart2");
+    const margin2 = { top: 30, right: 30, bottom: 70, left: 100 };
+    const width2 = 700 - margin2.left - margin2.right;
+    const height2 = 460 - margin2.top - margin2.bottom;
 
-  const g2 = svg2
-    .append("g")
-    .attr("transform", `translate(${margin2.left},${margin2.top})`);
+    const g2 = svg2
+      .append("g")
+      .attr("transform", `translate(${margin2.left},${margin2.top})`);
 
-  const x2 = d3.scaleLinear().range([0, width2]);
-  const y2 = d3.scaleLinear().range([height2, 0]);
+    const x2 = d3.scaleLinear().range([0, width2]);
+    const y2 = d3.scaleLinear().range([height2, 0]);
 
-  const xAxisG2 = g2.append("g").attr("transform", `translate(0,${height2})`);
-  const yAxisG2 = g2.append("g");
+    const xAxisG2 = g2.append("g").attr("transform", `translate(0,${height2})`);
+    const yAxisG2 = g2.append("g");
 
-  // Title
-  const title2 = svg2
-    .append("text")
-    .attr("x", margin2.left + width2 / 2)
-    .attr("y", 22)
-    .attr("text-anchor", "middle")
-    .style("font-weight", 600);
-
-  // Metrics
-  const METRICS = ["Swim", "Bike", "Run"];
-  let xMetric = "Bike";
-  let yMetric = "Run";
-
-  const labelText = (m) => `${m} time (H:MM:SS) ▾`;
-  const metricValue = (row, m) => hmsToSeconds(row[m]);
-
-  // regression toggle
-  let trendToggleEl = document.getElementById("trendToggle");
-  if (!trendToggleEl) {
-    const wrap = document.createElement("div");
-    wrap.className = "controls";
-    wrap.style.margin = "6px 0 0";
-
-    const label = document.createElement("label");
-    label.className = "toggle";
-    label.setAttribute("for", "trendToggle");
-
-    const cb = document.createElement("input");
-    cb.type = "checkbox";
-    cb.id = "trendToggle";
-
-    const txt = document.createElement("span");
-    txt.textContent = "Trend line";
-
-    label.appendChild(cb);
-    label.appendChild(txt);
-    wrap.appendChild(label);
-
-    // insert just before the SVG
-    const node = svg2.node();
-    node.parentNode.insertBefore(wrap, node);
-
-    trendToggleEl = cb;
-  }
-  const trendToggle = d3.select(trendToggleEl);
-
-  // axis labels
-  const xLabelGroup = svg2
-    .append("g")
-    .attr(
-      "transform",
-      `translate(${margin2.left + width2 / 2}, ${margin2.top + height2 + 50})`
-    )
-    .style("cursor", "pointer")
-    .attr("data-axis", "x");
-  const xLabelBg = xLabelGroup
-    .append("rect")
-    .attr("class", "axis-label-bg")
-    .attr("x", -60)
-    .attr("y", -12)
-    .attr("width", 120)
-    .attr("height", 24)
-    .attr("fill", "#ffffff")
-    .attr("stroke", "#d9e1ec")
-    .attr("rx", 6)
-    .attr("ry", 6);
-  const xLabel2 = xLabelGroup
-    .append("text")
-    .attr("class", "axis-label")
-    .attr("text-anchor", "middle")
-    .attr("alignment-baseline", "middle")
-    .style("font-size", "13px")
-    .style("font-weight", "500")
-    .style(
-      "fill",
-      getComputedStyle(document.documentElement).getPropertyValue("--text") ||
-        "#0b172a"
-    )
-    .text(labelText(xMetric));
-
-  const yLabelGroup = svg2
-    .append("g")
-    .attr(
-      "transform",
-      `translate(${margin2.left - 70}, ${
-        margin2.top + height2 / 2
-      }) rotate(-90)`
-    )
-    .style("cursor", "pointer")
-    .attr("data-axis", "y");
-  const yLabelBg = yLabelGroup
-    .append("rect")
-    .attr("class", "axis-label-bg")
-    .attr("x", -60)
-    .attr("y", -12)
-    .attr("width", 120)
-    .attr("height", 24)
-    .attr("fill", "#ffffff")
-    .attr("stroke", "#d9e1ec")
-    .attr("rx", 6)
-    .attr("ry", 6);
-  const yLabel2 = yLabelGroup
-    .append("text")
-    .attr("class", "axis-label")
-    .attr("text-anchor", "middle")
-    .attr("alignment-baseline", "middle")
-    .style("font-size", "13px")
-    .style("font-weight", "500")
-    .style(
-      "fill",
-      getComputedStyle(document.documentElement).getPropertyValue("--text") ||
-        "#0b172a"
-    )
-    .text(labelText(yMetric));
-
-  // layers
-  const points = g2.append("g").attr("class", "points");
-  const trendLayer = g2.append("g").attr("class", "trend");
-
-  g2.append("defs")
-    .append("clipPath")
-    .attr("id", "plot-clip")
-    .append("rect")
-    .attr("x", 0)
-    .attr("y", 0)
-    .attr("width", width2)
-    .attr("height", height2);
-  points.attr("clip-path", "url(#plot-clip)");
-  trendLayer.attr("clip-path", "url(#plot-clip)");
-
-  // helper functios
-  function ensureDistinct(changedAxis) {
-    if (xMetric === yMetric) {
-      const alt =
-        METRICS.find((m) => m !== (changedAxis === "x" ? xMetric : yMetric)) ||
-        "Swim";
-      if (changedAxis === "x") yMetric = alt;
-      else xMetric = alt;
-    }
-  }
-  function resizeLabelBg(lbl, bg) {
-    const padX = 12,
-      padY = 6;
-    const bbox = lbl.node().getBBox();
-    bg.attr("x", bbox.x - padX / 2)
-      .attr("y", bbox.y - padY / 2)
-      .attr("width", bbox.width + padX)
-      .attr("height", bbox.height + padY);
-  }
-  function buildPoints() {
-    return data
-      .map((row) => ({
-        x: metricValue(row, xMetric),
-        y: metricValue(row, yMetric),
-      }))
-      .filter((d) => d.x != null && d.y != null);
-  }
-
-  function ols(pts) {
-    const n = pts.length;
-    let sx = 0,
-      sy = 0,
-      sxx = 0,
-      syy = 0,
-      sxy = 0;
-    for (const { x, y } of pts) {
-      sx += x;
-      sy += y;
-      sxx += x * x;
-      syy += y * y;
-      sxy += x * y;
-    }
-    const denom = n * sxx - sx * sx;
-    if (denom === 0) return { m: 0, b: d3.mean(pts, (d) => d.y), r: 0 };
-    const m = (n * sxy - sx * sy) / denom;
-    const b = (sy - m * sx) / n;
-    const rDen = Math.sqrt((n * sxx - sx * sx) * (n * syy - sy * sy));
-    const r = rDen === 0 ? 0 : (n * sxy - sx * sy) / rDen;
-    return { m, b, r };
-  }
-  function drawTrend(pts) {
-    trendLayer.selectAll("*").remove();
-    const on = trendToggle.property("checked");
-    if (!on || pts.length < 2) return;
-    const { m, b, r } = ols(pts);
-    const [xMin, xMax] = x2.domain();
-    const yMin = m * xMin + b;
-    const yMax = m * xMax + b;
-    const accent2 =
-      getComputedStyle(document.documentElement).getPropertyValue(
-        "--accent-2"
-      ) || "#b5179e";
-
-    trendLayer
-      .append("line")
-      .attr("x1", x2(xMin))
-      .attr("y1", y2(yMin))
-      .attr("x2", x2(xMax))
-      .attr("y2", y2(yMax))
-      .attr("stroke", accent2.trim())
-      .attr("stroke-width", 2)
-      .attr("stroke-dasharray", "6,5")
-      .attr("opacity", 0)
-      .transition()
-      .duration(350)
-      .attr("opacity", 1);
-
-    trendLayer
+    // Title
+    const title2 = svg2
       .append("text")
-      .attr("x", 6)
-      .attr("y", 14)
-      .attr("fill", accent2.trim())
-      .style("font-size", "12px")
-      .style("font-weight", "600")
-      .text(`r = ${d3.format(".2f")(r)}`);
-  }
+      .attr("x", margin2.left + width2 / 2)
+      .attr("y", 22)
+      .attr("text-anchor", "middle")
+      .style("font-weight", 600);
 
-  // Brush-zoom
-  const PAD_FRAC = 0.2;
-  const MIN_FRACTION = 0.25;
+    // Metrics & accessors
+    const METRICS = ["Swim", "Bike", "Run"];
+    let xMetric = "Bike";
+    let yMetric = "Run";
+    const labelText = (m) => `${m} time (H:MM:SS) ▾`;
+    const metricValue = (row, m) => hmsToSeconds(row[m]);
 
-  function paddedDomain(selMin, selMax, fullMin, fullMax) {
-    const selSpan = Math.max(selMax - selMin, 1e-9);
-    const fullSpan = Math.max(fullMax - fullMin, 1e-9);
-    const desired = Math.max(
-      selSpan * (1 + PAD_FRAC * 2),
-      fullSpan * MIN_FRACTION
-    );
-    const c = (selMin + selMax) / 2;
-    let lo = c - desired / 2;
-    let hi = c + desired / 2;
-    if (lo < fullMin) {
-      hi += fullMin - lo;
-      lo = fullMin;
+    // Trend toggle
+    let trendToggleEl = document.getElementById("trendToggle");
+    if (!trendToggleEl) {
+      const wrap = document.createElement("div");
+      wrap.className = "controls";
+      wrap.style.margin = "6px 0 0";
+
+      const label = document.createElement("label");
+      label.className = "toggle";
+      label.setAttribute("for", "trendToggle");
+
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.id = "trendToggle";
+
+      const txt = document.createElement("span");
+      txt.textContent = "Trend line";
+
+      label.appendChild(cb);
+      label.appendChild(txt);
+      wrap.appendChild(label);
+
+      const node = svg2.node();
+      node.parentNode.insertBefore(wrap, node);
+      trendToggleEl = cb;
     }
-    if (hi > fullMax) {
-      lo -= hi - fullMax;
-      hi = fullMax;
+    const trendToggle = d3.select(trendToggleEl);
+
+    // Axis label "pills"
+    const xLabelGroup = svg2
+      .append("g")
+      .attr(
+        "transform",
+        `translate(${margin2.left + width2 / 2}, ${margin2.top + height2 + 50})`
+      )
+      .style("cursor", "pointer")
+      .attr("data-axis", "x");
+    const xLabelBg = xLabelGroup
+      .append("rect")
+      .attr("class", "axis-label-bg")
+      .attr("x", -60)
+      .attr("y", -12)
+      .attr("width", 120)
+      .attr("height", 24)
+      .attr("rx", 6)
+      .attr("ry", 6);
+    const xLabel2 = xLabelGroup
+      .append("text")
+      .attr("class", "axis-label")
+      .attr("text-anchor", "middle")
+      .attr("alignment-baseline", "middle")
+      .style("font-size", "13px")
+      .style("font-weight", "500")
+      .text(labelText(xMetric));
+
+    const yLabelGroup = svg2
+      .append("g")
+      .attr(
+        "transform",
+        `translate(${margin2.left - 70}, ${
+          margin2.top + height2 / 2
+        }) rotate(-90)`
+      )
+      .style("cursor", "pointer")
+      .attr("data-axis", "y");
+    const yLabelBg = yLabelGroup
+      .append("rect")
+      .attr("class", "axis-label-bg")
+      .attr("x", -60)
+      .attr("y", -12)
+      .attr("width", 120)
+      .attr("height", 24)
+      .attr("rx", 6)
+      .attr("ry", 6);
+    const yLabel2 = yLabelGroup
+      .append("text")
+      .attr("class", "axis-label")
+      .attr("text-anchor", "middle")
+      .attr("alignment-baseline", "middle")
+      .style("font-size", "13px")
+      .style("font-weight", "500")
+      .text(labelText(yMetric));
+
+    // Layers
+    const points = g2.append("g").attr("class", "points");
+    const trendLayer = g2.append("g").attr("class", "trend");
+
+    g2.append("defs")
+      .append("clipPath")
+      .attr("id", "plot-clip")
+      .append("rect")
+      .attr("width", width2)
+      .attr("height", height2);
+    points.attr("clip-path", "url(#plot-clip)");
+    trendLayer.attr("clip-path", "url(#plot-clip)");
+
+    // Helpers
+    function ensureDistinct(changedAxis) {
+      if (xMetric === yMetric) {
+        const alt =
+          METRICS.find(
+            (m) => m !== (changedAxis === "x" ? xMetric : yMetric)
+          ) || "Swim";
+        if (changedAxis === "x") yMetric = alt;
+        else xMetric = alt;
+      }
     }
-    return [Math.max(fullMin, lo), Math.min(fullMax, hi)];
-  }
-
-  // Brush
-  const brushG = g2.append("g").attr("class", "brush");
-  const brush = d3
-    .brush()
-    .extent([
-      [0, 0],
-      [width2, height2],
-    ])
-    .on("end", brushed);
-  brushG.call(brush);
-
-  // Reset button
-  let resetBtn = document.getElementById("scatterReset");
-  if (!resetBtn) {
-    const btn = document.createElement("button");
-    btn.id = "scatterReset";
-    btn.textContent = "Reset zoom";
-    btn.className = "expand-btn";
-    btn.style.margin = "6px 0 0 0";
-    btn.style.display = "none";
-    svg2.node().parentNode.insertBefore(btn, svg2.node());
-    resetBtn = btn;
-  }
-  resetBtn.addEventListener("click", () => {
-    zoomed = false;
-    const pts = buildPoints();
-    x2.domain(d3.extent(pts, (d) => d.x)).nice();
-    y2.domain(d3.extent(pts, (d) => d.y)).nice();
-    brushG.call(brush.move, null);
-    updateScatter();
-    resetBtn.style.display = "none";
-  });
-
-  function brushed({ selection }) {
-    if (!selection) return;
-    const [[x0, y0], [x1, y1]] = selection;
-
-    if (Math.abs(x1 - x0) < 4 || Math.abs(y1 - y0) < 4) {
-      brushG.call(brush.move, null);
-      return;
+    function resizeLabelBg(lbl, bg) {
+      const padX = 12,
+        padY = 6;
+      const bbox = lbl.node().getBBox();
+      bg.attr("x", bbox.x - padX / 2)
+        .attr("y", bbox.y - padY / 2)
+        .attr("width", bbox.width + padX)
+        .attr("height", bbox.height + padY);
+    }
+    function buildPoints() {
+      return data
+        .map((row) => ({
+          x: metricValue(row, xMetric),
+          y: metricValue(row, yMetric),
+        }))
+        .filter((d) => d.x != null && d.y != null);
     }
 
-    const selX = [x2.invert(x0), x2.invert(x1)].sort((a, b) => a - b);
-    const selY = [y2.invert(y1), y2.invert(y0)].sort((a, b) => a - b); // y inverted
+    // OLS + precompute cache
+    function ols(pts) {
+      const n = pts.length;
+      let sx = 0,
+        sy = 0,
+        sxx = 0,
+        syy = 0,
+        sxy = 0;
+      for (const { x, y } of pts) {
+        sx += x;
+        sy += y;
+        sxx += x * x;
+        syy += y * y;
+        sxy += x * y;
+      }
+      const denom = n * sxx - sx * sx;
+      if (denom === 0) return { m: 0, b: d3.mean(pts, (d) => d.y), r: 0 };
+      const m = (n * sxy - sx * sy) / denom;
+      const b = (sy - m * sx) / n;
+      const rDen = Math.sqrt((n * sxx - sx * sx) * (n * syy - sy * sy));
+      const r = rDen === 0 ? 0 : (n * sxy - sx * sy) / rDen;
+      return { m, b, r };
+    }
 
-    const [xFullLo, xFullHi] = x2.domain();
-    const [yFullLo, yFullHi] = y2.domain();
+    // --- Precomputed regressions for ordered pairs ---
+    const trendCache = new Map(); // key "X|Y" -> {m,b,r} or null
 
-    const xNew = paddedDomain(selX[0], selX[1], xFullLo, xFullHi);
-    const yNew = paddedDomain(selY[0], selY[1], yFullLo, yFullHi);
+    function buildPointsFor(xKey, yKey) {
+      return data
+        .map((row) => ({
+          x: metricValue(row, xKey),
+          y: metricValue(row, yKey),
+        }))
+        .filter((d) => d.x != null && d.y != null);
+    }
 
-    x2.domain(xNew);
-    y2.domain(yNew);
+    function computeAllTrendCoeffs() {
+      trendCache.clear();
+      for (let i = 0; i < METRICS.length; i++) {
+        for (let j = 0; j < METRICS.length; j++) {
+          if (i === j) continue;
+          const X = METRICS[i],
+            Y = METRICS[j];
+          const pts = buildPointsFor(X, Y);
+          const coeffs = pts.length >= 2 ? ols(pts) : null;
+          trendCache.set(`${X}|${Y}`, coeffs);
+        }
+      }
+    }
 
-    zoomed = true;
-    brushG.call(brush.move, null);
-    updateScatter();
-    resetBtn.style.display = "inline-block";
-  }
+    function renderTrendFromCache() {
+      trendLayer.selectAll("*").remove();
 
-  function updateScatter() {
-    const pts = buildPoints();
+      if (!trendToggle.property("checked")) return;
+      const coeffs = trendCache.get(`${xMetric}|${yMetric}`);
+      if (!coeffs) return;
 
-    if (!zoomed) {
+      const { m, b, r } = coeffs;
+      const [xMin, xMax] = x2.domain();
+      const yMin = m * xMin + b;
+      const yMax = m * xMax + b;
+
+      const accent2 =
+        getComputedStyle(document.documentElement).getPropertyValue(
+          "--accent-2"
+        ) || "#b5179e";
+
+      trendLayer
+        .append("line")
+        .attr("x1", x2(xMin))
+        .attr("y1", y2(yMin))
+        .attr("x2", x2(xMax))
+        .attr("y2", y2(yMax))
+        .attr("stroke", accent2.trim())
+        .attr("stroke-width", 2)
+        .attr("stroke-dasharray", "6,5");
+
+      trendLayer
+        .append("text")
+        .attr("x", 6)
+        .attr("y", 14)
+        .attr("fill", accent2.trim())
+        .style("font-size", "12px")
+        .style("font-weight", "600")
+        .text(`r = ${d3.format(".2f")(r)}`);
+    }
+
+    // Brush-zoom
+    const PAD_FRAC = 0.2;
+    const MIN_FRACTION = 0.25;
+
+    function paddedDomain(selMin, selMax, fullMin, fullMax) {
+      const selSpan = Math.max(selMax - selMin, 1e-9);
+      const fullSpan = Math.max(fullMax - fullMin, 1e-9);
+      const desired = Math.max(
+        selSpan * (1 + PAD_FRAC * 2),
+        fullSpan * MIN_FRACTION
+      );
+      const c = (selMin + selMax) / 2;
+      let lo = c - desired / 2;
+      let hi = c + desired / 2;
+      if (lo < fullMin) {
+        hi += fullMin - lo;
+        lo = fullMin;
+      }
+      if (hi > fullMax) {
+        lo -= hi - fullMax;
+        hi = fullMax;
+      }
+      return [Math.max(fullMin, lo), Math.min(fullMax, hi)];
+    }
+
+    const brushG = g2.append("g").attr("class", "brush");
+    const brush = d3
+      .brush()
+      .extent([
+        [0, 0],
+        [width2, height2],
+      ])
+      .on("end", brushed);
+    brushG.call(brush);
+
+    // Reset button
+    let resetBtn = document.getElementById("scatterReset");
+    if (!resetBtn) {
+      const btn = document.createElement("button");
+      btn.id = "scatterReset";
+      btn.textContent = "Reset zoom";
+      btn.className = "expand-btn";
+      btn.style.margin = "6px 0 0 0";
+      btn.style.display = "none";
+      svg2.node().parentNode.insertBefore(btn, svg2.node());
+      resetBtn = btn;
+    }
+    resetBtn.addEventListener("click", () => {
+      zoomed = false;
+      const pts = buildPoints();
       x2.domain(d3.extent(pts, (d) => d.x)).nice();
       y2.domain(d3.extent(pts, (d) => d.y)).nice();
-    }
-
-    const [xLo, xHi] = x2.domain();
-    const [yLo, yHi] = y2.domain();
-    const visible = pts.filter(
-      (d) => d.x >= xLo && d.x <= xHi && d.y >= yLo && d.y <= yHi
-    );
-
-    xAxisG2
-      .transition()
-      .duration(400)
-      .call(d3.axisBottom(x2).tickFormat(secondsToHMS));
-    yAxisG2
-      .transition()
-      .duration(400)
-      .call(d3.axisLeft(y2).tickFormat(secondsToHMS));
-
-    const sel = points
-      .selectAll("circle")
-      .data(visible, (d) => `${d.x},${d.y}`);
-    sel
-      .enter()
-      .append("circle")
-      .attr("r", 3)
-      .attr("opacity", 0.7)
-      .attr("fill", "#1f77b4")
-      .attr("cx", (d) => x2(d.x))
-      .attr("cy", (d) => y2(d.y))
-      .merge(sel)
-      .transition()
-      .duration(300)
-      .attr("cx", (d) => x2(d.x))
-      .attr("cy", (d) => y2(d.y));
-    sel.exit().remove();
-
-    drawTrend(visible);
-
-    title2.text(`${xMetric} vs ${yMetric} (All Athletes)`);
-    xLabel2.text(labelText(xMetric));
-    yLabel2.text(labelText(yMetric));
-    resizeLabelBg(xLabel2, xLabelBg);
-    resizeLabelBg(yLabel2, yLabelBg);
-  }
-
-  function showAxisMenu(evt, axis) {
-    d3.selectAll(".axis-menu").remove();
-    const card = document.getElementById("chart2-card") || document.body;
-    const menu = document.createElement("div");
-    menu.className = "axis-menu";
-    menu.style.position = "absolute";
-    menu.style.zIndex = "1000";
-    menu.style.background = "#ffffff";
-    menu.style.border =
-      "1px solid " +
-      (getComputedStyle(document.documentElement).getPropertyValue(
-        "--border"
-      ) || "#d9e1ec");
-    menu.style.borderRadius = "8px";
-    menu.style.boxShadow =
-      getComputedStyle(document.documentElement).getPropertyValue("--shadow") ||
-      "0 6px 24px rgba(0,0,0,0.1)";
-    menu.style.padding = "4px";
-    menu.style.minWidth = "140px";
-
-    METRICS.forEach((opt) => {
-      const btn = document.createElement("button");
-      btn.textContent =
-        opt + ((axis === "x" ? xMetric : yMetric) === opt ? " ✓" : "");
-      btn.style.width = "100%";
-      btn.style.textAlign = "left";
-      btn.style.background = "transparent";
-      btn.style.border = "0";
-      btn.style.padding = "8px 10px";
-      btn.style.fontSize = "14px";
-      btn.style.cursor = "pointer";
-      btn.style.color =
-        getComputedStyle(document.documentElement).getPropertyValue("--text") ||
-        "#0b172a";
-      btn.onmouseenter = () => (btn.style.background = "#f1f5ff");
-      btn.onmouseleave = () => (btn.style.background = "transparent");
-      btn.addEventListener("click", () => {
-        if (axis === "x") xMetric = opt;
-        else yMetric = opt;
-        ensureDistinct(axis);
-        zoomed = false;
-        resetBtn.style.display = "none";
-        updateScatter();
-        menu.remove();
-      });
-      menu.appendChild(btn);
+      brushG.call(brush.move, null);
+      updateScatter();
+      renderTrendFromCache(); // just reposition cached line
+      resetBtn.style.display = "none";
     });
 
-    const { clientX, clientY } = evt;
-    const rect = card.getBoundingClientRect();
-    menu.style.left = clientX - rect.left + 8 + "px";
-    menu.style.top = clientY - rect.top + 8 + "px";
+    function brushed({ selection }) {
+      if (!selection) return;
+      const [[x0, y0], [x1, y1]] = selection;
 
-    const close = () => {
-      menu.remove();
-      document.removeEventListener("click", outside, { capture: true });
-      document.removeEventListener("keydown", onKey);
-    };
-    const outside = (e) => {
-      if (!menu.contains(e.target)) close();
-    };
-    const onKey = (e) => {
-      if (e.key === "Escape") close();
-    };
+      if (Math.abs(x1 - x0) < 4 || Math.abs(y1 - y0) < 4) {
+        brushG.call(brush.move, null);
+        return;
+      }
 
-    document.addEventListener("click", outside, { capture: true });
-    document.addEventListener("keydown", onKey);
+      const selX = [x2.invert(x0), x2.invert(x1)].sort((a, b) => a - b);
+      const selY = [y2.invert(y1), y2.invert(y0)].sort((a, b) => a - b); // y inverted
 
-    card.appendChild(menu);
-    evt.stopPropagation();
-  }
+      const [xFullLo, xFullHi] = x2.domain();
+      const [yFullLo, yFullHi] = y2.domain();
 
-  xLabelGroup.on("click", (evt) => showAxisMenu(evt, "x"));
-  yLabelGroup.on("click", (evt) => showAxisMenu(evt, "y"));
-  trendToggle.on("change", updateScatter);
+      const xNew = paddedDomain(selX[0], selX[1], xFullLo, xFullHi);
+      const yNew = paddedDomain(selY[0], selY[1], yFullLo, yFullHi);
 
-  ensureDistinct();
-  updateScatter();
+      x2.domain(xNew);
+      y2.domain(yNew);
 
-  // Chart 3: Avg Overall by Division & Gender
+      zoomed = true;
+      brushG.call(brush.move, null);
+      updateScatter(); // redraw points/axes
+      renderTrendFromCache(); // reposition cached line ONLY
+      resetBtn.style.display = "inline-block";
+    }
+
+    function updateScatter() {
+      const pts = buildPoints();
+
+      if (!zoomed) {
+        x2.domain(d3.extent(pts, (d) => d.x)).nice();
+        y2.domain(d3.extent(pts, (d) => d.y)).nice();
+      }
+
+      const [xLo, xHi] = x2.domain();
+      const [yLo, yHi] = y2.domain();
+      const visible = pts.filter(
+        (d) => d.x >= xLo && d.x <= xHi && d.y >= yLo && d.y <= yHi
+      );
+
+      xAxisG2
+        .transition()
+        .duration(400)
+        .call(d3.axisBottom(x2).tickFormat(secondsToHMS));
+      yAxisG2
+        .transition()
+        .duration(400)
+        .call(d3.axisLeft(y2).tickFormat(secondsToHMS));
+
+      const sel = points
+        .selectAll("circle")
+        .data(visible, (d) => `${d.x},${d.y}`);
+
+      const enter = sel
+        .enter()
+        .append("circle")
+        .attr("r", 3)
+        .attr("opacity", 0.7)
+        .attr("fill", "#1f77b4")
+        .attr("cx", (d) => x2(d.x))
+        .attr("cy", (d) => y2(d.y));
+
+      enter
+        .append("title")
+        .text((d) => `x: ${secondsToHMS(d.x)}\ny: ${secondsToHMS(d.y)}`);
+
+      sel
+        .merge(enter)
+        .transition()
+        .duration(300)
+        .attr("cx", (d) => x2(d.x))
+        .attr("cy", (d) => y2(d.y));
+
+      sel.exit().remove();
+
+      // Titles/labels
+      title2.text(`${xMetric} vs ${yMetric} (All Athletes)`);
+      xLabel2.text(labelText(xMetric));
+      yLabel2.text(labelText(yMetric));
+      resizeLabelBg(xLabel2, xLabelBg);
+      resizeLabelBg(yLabel2, yLabelBg);
+    }
+
+    // Axis menu
+    function showAxisMenu(evt, axis) {
+      d3.selectAll(".axis-menu").remove();
+      const card = document.getElementById("chart2-card") || document.body;
+      const menu = document.createElement("div");
+      menu.className = "axis-menu";
+
+      METRICS.forEach((opt) => {
+        const btn = document.createElement("button");
+        btn.textContent =
+          opt + ((axis === "x" ? xMetric : yMetric) === opt ? " ✓" : "");
+        btn.addEventListener("click", () => {
+          if (axis === "x") xMetric = opt;
+          else yMetric = opt;
+          ensureDistinct(axis);
+
+          zoomed = false;
+          resetBtn.style.display = "none";
+
+          updateScatter(); // redraw points & axes
+          renderTrendFromCache(); // draw cached fit for new pair
+          menu.remove();
+        });
+        menu.appendChild(btn);
+      });
+
+      // Style/position
+      const { clientX, clientY } = evt;
+      const rect = card.getBoundingClientRect();
+      Object.assign(menu.style, {
+        position: "absolute",
+        zIndex: "1000",
+        background: "#fff",
+        border:
+          "1px solid " +
+          (getComputedStyle(document.documentElement).getPropertyValue(
+            "--border"
+          ) || "#d9e1ec"),
+        borderRadius: "8px",
+        boxShadow:
+          getComputedStyle(document.documentElement).getPropertyValue(
+            "--shadow"
+          ) || "0 6px 24px rgba(0,0,0,0.1)",
+        padding: "4px",
+        minWidth: "140px",
+        left: clientX - rect.left + 8 + "px",
+        top: clientY - rect.top + 8 + "px",
+      });
+
+      const close = () => {
+        menu.remove();
+        document.removeEventListener("click", outside, { capture: true });
+        document.removeEventListener("keydown", onKey);
+      };
+      const outside = (e) => {
+        if (!menu.contains(e.target)) close();
+      };
+      const onKey = (e) => {
+        if (e.key === "Escape") close();
+      };
+
+      document.addEventListener("click", outside, { capture: true });
+      document.addEventListener("keydown", onKey);
+
+      card.appendChild(menu);
+      evt.stopPropagation();
+    }
+
+    xLabelGroup.on("click", (evt) => showAxisMenu(evt, "x"));
+    yLabelGroup.on("click", (evt) => showAxisMenu(evt, "y"));
+
+    // Toggle show/hide without recompute
+    trendToggle.on("change", () => {
+      renderTrendFromCache();
+    });
+
+    // Initial draw
+    ensureDistinct();
+    updateScatter();
+    computeAllTrendCoeffs(); // precompute once
+    renderTrendFromCache(); // render current pair from cache
+  })();
+
+  //  Chart 3
 
   const svg3 = d3.select("#chart3");
   const margin3 = { top: 40, right: 30, bottom: 140, left: 120 };
@@ -901,5 +922,194 @@ d3.csv(file).then((data) => {
       .attr("y", -18)
       .text(gender)
       .style("alignment-baseline", "middle");
+
+    // Chart 4
+    (() => {
+      const svg4 = d3.select("#chart4");
+      const margin4 = { top: 70, right: 30, bottom: 140, left: 120 };
+      const width4 = 900 - margin4.left - margin4.right;
+      const height4 = 520 - margin4.top - margin4.bottom;
+
+      const g4 = svg4
+        .append("g")
+        .attr("transform", `translate(${margin4.left},${margin4.top})`);
+
+      const x4 = d3.scaleBand().range([0, width4]).paddingInner(0.2);
+      const y4 = d3.scaleLinear().range([height4, 0]).domain([0, 1]);
+
+      x4.domain(divisions);
+
+      const color4 = d3
+        .scaleOrdinal()
+        .domain(["Swim", "Bike", "Run"])
+        .range(["#4cc9f0", "#f9c74f", "#90be6d"]);
+
+      const xAxisG4 = g4
+        .append("g")
+        .attr("transform", `translate(0,${height4})`);
+      const yAxisG4 = g4.append("g");
+
+      // Title & labels
+      svg4
+        .append("text")
+        .attr("x", margin4.left + width4 / 2)
+        .attr("y", 20)
+        .attr("text-anchor", "middle")
+        .style("font-weight", 600)
+        .text("Pacing Composition by Division (Share of Overall Time)");
+
+      svg4
+        .append("text")
+        .attr("x", margin4.left + width4 / 2)
+        .attr("y", margin4.top + height4 + 100)
+        .attr("text-anchor", "middle")
+        .text("Division (Pro, then Age Group)");
+
+      svg4
+        .append("text")
+        .attr(
+          "transform",
+          `translate(${margin4.left - 70}, ${
+            margin4.top + height4 / 2
+          }) rotate(-90)`
+        )
+        .attr("text-anchor", "middle")
+        .text("Share of Overall Time");
+
+      // Legend
+      const legend4 = svg4
+        .append("g")
+        .attr(
+          "transform",
+          `translate(${margin4.left + width4 / 2 - 150}, ${margin4.top - 10})`
+        );
+      ["Swim", "Bike", "Run"].forEach((k, i) => {
+        const gx = legend4
+          .append("g")
+          .attr("transform", `translate(${i * 120}, 0)`);
+        gx.append("rect")
+          .attr("width", 14)
+          .attr("height", 14)
+          .attr("y", -10)
+          .attr("fill", color4(k));
+        gx.append("text")
+          .attr("x", 20)
+          .attr("y", 1)
+          .text(k)
+          .style("font-size", 12);
+      });
+
+      data.forEach((d) => {
+        d._Swim = hmsToSeconds(d.Swim);
+        d._Bike = hmsToSeconds(d.Bike);
+        d._Run = hmsToSeconds(d.Run);
+      });
+
+      function buildCompositionAll() {
+        const rows = data.filter(
+          (d) =>
+            d._Swim != null && d._Bike != null && d._Run != null && d.Division
+        );
+
+        const rolled = d3.rollups(
+          rows,
+          (v) => {
+            const s = d3.mean(v, (d) => d._Swim);
+            const b = d3.mean(v, (d) => d._Bike);
+            const r = d3.mean(v, (d) => d._Run);
+            const tot = s + b + r;
+            if (!tot || !isFinite(tot)) return null;
+            return { Swim: s / tot, Bike: b / tot, Run: r / tot };
+          },
+          (d) => d.Division
+        );
+
+        const map = new Map(rolled);
+        return divisions
+          .map((div) => {
+            const rec = map.get(div);
+            if (!rec) return null;
+            return {
+              Division: div,
+              Swim: rec.Swim,
+              Bike: rec.Bike,
+              Run: rec.Run,
+            };
+          })
+          .filter(Boolean);
+      }
+
+      const stack = d3.stack().keys(["Swim", "Bike", "Run"]);
+
+      function renderC4() {
+        const comp = buildCompositionAll();
+        const series = stack(comp);
+
+        // Axes
+        xAxisG4
+          .transition()
+          .duration(350)
+          .call(d3.axisBottom(x4))
+          .selection()
+          .selectAll("text")
+          .attr("transform", "rotate(-45)")
+          .style("text-anchor", "end");
+
+        yAxisG4
+          .transition()
+          .duration(350)
+          .call(d3.axisLeft(y4).tickFormat(d3.format(".0%")).ticks(5));
+
+        // JOIN
+        const groups = g4.selectAll("g.stack-layer").data(series, (d) => d.key);
+
+        const groupsEnter = groups
+          .enter()
+          .append("g")
+          .attr("class", "stack-layer")
+          .attr("fill", (d) => color4(d.key));
+
+        const groupsAll = groupsEnter.merge(groups);
+
+        const rects = groupsAll.selectAll("rect").data(
+          (d) =>
+            d.map((p) => ({
+              key: d.key,
+              Division: p.data.Division,
+              y0: p[0],
+              y1: p[1],
+            })),
+          (d) => d.Division + "-" + d.key
+        );
+
+        rects
+          .enter()
+          .append("rect")
+          .attr("x", (d) => x4(d.Division))
+          .attr("width", x4.bandwidth())
+          .attr("y", y4(0))
+          .attr("height", 0)
+          .merge(rects)
+          .transition()
+          .duration(400)
+          .attr("x", (d) => x4(d.Division))
+          .attr("width", x4.bandwidth())
+          .attr("y", (d) => y4(d.y1))
+          .attr("height", (d) => Math.max(0, y4(d.y0) - y4(d.y1)));
+
+        rects.exit().remove();
+        groups.exit().remove();
+
+        g4.selectAll("rect").selectAll("title").remove();
+        g4.selectAll("rect")
+          .append("title")
+          .text((d) => {
+            const pct = d3.format(".1%")(d.y1 - d.y0);
+            return `${d.Division}\n${d.key}: ${pct}`;
+          });
+      }
+
+      renderC4();
+    })();
   });
 });

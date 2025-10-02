@@ -106,14 +106,10 @@
                 viewBox="0 0 600 420"
                 aria-label="Athlete splits"
               ></svg>
-              <figcaption>
-                Selected athlete’s Swim, Bike, Run, and Overall times.
-              </figcaption>
             </figure>
           </div>
         </section>
 
-        <!-- Chart 2 -->
         <!-- Chart 2 -->
         <section class="card" id="chart2-card" aria-labelledby="c2-title">
           <div class="inner">
@@ -135,9 +131,6 @@
                 viewBox="0 0 700 460"
                 aria-label="Metric vs Metric scatter"
               ></svg>
-              <figcaption>
-                Click the axis titles to change the metric (Swim, Bike, or Run).
-              </figcaption>
             </figure>
           </div>
         </section>
@@ -162,9 +155,31 @@
                 viewBox="0 0 900 500"
                 aria-label="Average overall time by division and gender"
               ></svg>
-              <figcaption>
-                Average overall finish time by Division &amp; Gender.
-              </figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <!-- Chart 4 (no filter) -->
+        <section class="card" id="chart4-card" aria-labelledby="c4-title">
+          <div class="inner">
+            <div class="card-head">
+              <h3 id="c4-title">Pacing Composition by Division</h3>
+              <button
+                class="expand-btn"
+                data-target="chart4-card"
+                aria-expanded="false"
+                aria-label="Expand chart 4"
+              >
+                Expand
+              </button>
+            </div>
+
+            <figure>
+              <svg
+                id="chart4"
+                viewBox="0 0 900 520"
+                aria-label="Pacing composition stacked bars by division"
+              ></svg>
             </figure>
           </div>
         </section>
